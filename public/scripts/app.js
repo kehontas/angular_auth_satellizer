@@ -1,7 +1,7 @@
 angular
   .module('AuthSampleApp', [
-    'ui.router'
-    // TODO #2: Add satellizer module
+    'ui.router',
+    'satellizer' //TODO #2
   ])
   .controller('MainController', MainController)
   .controller('HomeController', HomeController)
@@ -12,6 +12,7 @@ angular
   .service('Account', Account)
   .config(configRoutes)
   ;
+
 
 
 ////////////
@@ -122,8 +123,9 @@ function HomeController ($http) {
     });
 }
 
-LoginController.$inject = ["Account"]; // minification protection
-function LoginController (Account) {
+LoginController.$inject = ["Account", "$location"]; // minification protection
+function LoginController (Account, $location) {
+  console.count("I'm in login controller");
   var vm = this;
   vm.new_user = {}; // form data
 
@@ -131,14 +133,16 @@ function LoginController (Account) {
     Account
       .login(vm.new_user)
       .then(function(){
+        vm.new_user = {};
          // TODO #4: clear sign up form
+        $location.path('/profile');
          // TODO #5: redirect to '/profile'
-      })
+      });
   };
 }
 
-SignupController.$inject = []; // minification protection
-function SignupController () {
+SignupController.$inject = ["Account", "$location"]; // minification protection
+function SignupController (Account, $location) {
   var vm = this;
   vm.new_user = {}; // form data
 
@@ -147,19 +151,33 @@ function SignupController () {
       .signup(vm.new_user)
       .then(
         function (response) {
+          vm.new_user = {};
           // TODO #9: clear sign up form
+          $location.path('/profile');
           // TODO #10: redirect to '/profile'
         }
       );
   };
 }
 
-LogoutController.$inject = ["Account"]; // minification protection
-function LogoutController (Account) {
-  Account.logout()
-  // TODO #7: when the logout succeeds, redirect to the login page
-}
+// LogoutController.$inject = ["Account", "$location"]; // minification protection
+// function LogoutController (Account, $location) {
+//   Account
+//     .logout()
+//     .then(function(){
+//       $location.path('/login');
+//     });
+//   // TODO #7: when the logout succeeds, redirect to the login page
+// }
 
+LogoutController.$inject = ["$location", "Account"]; // minification protection
+function LogoutController ($location, Account) {
+  Account
+    .logout()
+    .then(function () {
+        $location.path('/login');
+    });
+}
 
 ProfileController.$inject = []; // minification protection
 function ProfileController () {
@@ -188,20 +206,34 @@ function Account($http, $q, $auth) {
   self.getProfile = getProfile;
   self.updateProfile = updateProfile;
 
-  function signup(userData) {
+  function signup(userData, $location) {
     return (
-      // TODO #8: signup (https://github.com/sahat/satellizer#authsignupuser-options)
-      // then, set the token (https://github.com/sahat/satellizer#authsettokentoken)
-      // returns a promise
-    );
+      $auth
+        .signup(userData)
+        .then(
+          function onSuccess(response){
+            $auth.setToken(response.data.token);
+            console.log("Token has been set from Signup");
+        })
+        .catch(function(response){
+            console.log("You've done fucked up in signup");
+        })
+    //   // TODO #8: signup (https://github.com/sahat/satellizer#authsignupuser-options)
+    //   // then, set the token (https://github.com/sahat/satellizer#authsettokentoken)
+    //   // returns a promise
+   );
   }
 
   function login(userData) {
     return (
       $auth
-        .satellizerLogin(userData) // login (https://github.com/sahat/satellizer#authloginuser-options)
+        .login(userData) // login (https://github.com/sahat/satellizer#authloginuser-options)
         .then(
           function onSuccess(response) {
+              //$auth.setToken(response.access_token);
+              $auth.setToken(response.data.token);
+              //$auth.setToken(response.data[config.tokenName]);
+              console.log("Token has been set!");
             //TODO #3: set token (https://github.com/sahat/satellizer#authsettokentoken)
           },
 
@@ -214,9 +246,15 @@ function Account($http, $q, $auth) {
 
   function logout() {
     // returns a promise!!!
+    return(
+    $auth
+      .logout()
+      .then(function(){
+        self.user = null;
+      })
+    );
     // TODO #6: logout the user by removing their jwt token (using satellizer)
     // Make sure to also wipe the user's data from the application:
-    // self.user = null;
     // returns a promise!!!
   }
 
